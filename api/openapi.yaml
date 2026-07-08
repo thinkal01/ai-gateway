@@ -1,0 +1,642 @@
+openapi: "3.1.0"
+info:
+  title: AI Gateway API
+  description: |
+    AI Gateway 是一个统一的 API 网关，用于管理和代理 AI 模型提供商（如 OpenAI）的请求。
+    它提供租户管理、API Key 认证、用量记录等功能。
+
+    ## 快速开始
+
+    1. 启动服务：`docker compose up -d`
+    2. 创建租户：`POST /api/tenants`
+    3. 创建 API Key：`POST /api/keys`
+    4. 使用 Key 调用代理 API：`POST /v1/chat/completions`
+
+    ## 认证方式
+
+    代理 API（`/v1/*`）需要 Bearer Token 认证：
+    ```
+    Authorization: Bearer sk-xxxxxxxxxxxxxxxx
+    ```
+
+    管理 API（`/api/*`）当前为内部使用，后续将增加管理认证。
+  version: "0.1.0"
+  contact:
+    name: AI Gateway Team
+
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+
+paths:
+  # ==========================================================================
+  # 健康检查
+  # ==========================================================================
+  /health:
+    get:
+      operationId: healthCheck
+      summary: 健康检查
+      description: 返回服务运行状态和版本信息
+      tags: [系统]
+      responses:
+        "200":
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  # ==========================================================================
+  # 代理 API
+  # ==========================================================================
+  /v1/chat/completions:
+    post:
+      operationId: createChatCompletion
+      summary: 聊天补全
+      description: |
+        转发聊天补全请求到 AI 模型提供商。
+        需要 Bearer Token 认证，Token 的 scopes 必须包含请求的模型名称。
+      tags: [代理 API]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+      responses:
+        "200":
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "502":
+          $ref: "#/components/responses/BadGateway"
+
+  /v1/models:
+    get:
+      operationId: listModels
+      summary: 模型列表
+      description: 获取可用的 AI 模型列表
+      tags: [代理 API]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 模型列表
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ==========================================================================
+  # 管理 API — 租户
+  # ==========================================================================
+  /api/tenants:
+    post:
+      operationId: createTenant
+      summary: 创建租户
+      description: 创建一个新的租户（组织/项目）
+      tags: [管理 API - 租户]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "201":
+          description: 租户创建成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+    get:
+      operationId: listTenants
+      summary: 列出租户
+      description: 获取所有租户列表
+      tags: [管理 API - 租户]
+      responses:
+        "200":
+          description: 租户列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantResponse"
+
+  /api/tenants/{id}:
+    get:
+      operationId: getTenantById
+      summary: 获取租户详情
+      description: 根据 ID 获取租户详细信息
+      tags: [管理 API - 租户]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: 租户详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: updateTenant
+      summary: 更新租户
+      description: 更新租户信息（名称、启用状态等）
+      tags: [管理 API - 租户]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantRequest"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteTenant
+      summary: 删除租户
+      description: 删除指定租户
+      tags: [管理 API - 租户]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "204":
+          description: 删除成功，无响应体
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ==========================================================================
+  # 管理 API — API Key
+  # ==========================================================================
+  /api/keys:
+    post:
+      operationId: createApiKey
+      summary: 创建 API Key
+      description: |
+        创建一个新的 API Key。
+        **注意：** 完整 Key 仅在创建时返回一次，后续无法再次获取。
+      tags: [管理 API - Key]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "201":
+          description: Key 创建成功（返回完整 Key）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+    get:
+      operationId: listApiKeys
+      summary: 列出 API Key
+      description: 获取所有 API Key 列表（不返回完整 Key）
+      tags: [管理 API - Key]
+      responses:
+        "200":
+          description: Key 列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKeyResponse"
+
+  /api/keys/{id}:
+    get:
+      operationId: getApiKeyById
+      summary: 获取 API Key 详情
+      description: 根据 ID 获取 Key 信息（不返回完整 Key）
+      tags: [管理 API - Key]
+      parameters:
+        - $ref: "#/components/parameters/KeyId"
+      responses:
+        "200":
+          description: Key 详情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: updateApiKey
+      summary: 更新 API Key
+      description: 更新 Key 的名称、权限范围、启用状态等
+      tags: [管理 API - Key]
+      parameters:
+        - $ref: "#/components/parameters/KeyId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateApiKeyRequest"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteApiKey
+      summary: 删除 API Key
+      description: 删除指定 API Key
+      tags: [管理 API - Key]
+      parameters:
+        - $ref: "#/components/parameters/KeyId"
+      responses:
+        "204":
+          description: 删除成功，无响应体
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: sk-
+      description: "格式: `Bearer sk-{prefix}{secret}`"
+
+  parameters:
+    TenantId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: 租户 ID
+    KeyId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: API Key ID
+
+  schemas:
+    # -------------------------------------------------------------------------
+    # 健康检查
+    # -------------------------------------------------------------------------
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "ok"
+        version:
+          type: string
+          example: "0.1.0"
+      required: [status, version]
+
+    # -------------------------------------------------------------------------
+    # 租户
+    # -------------------------------------------------------------------------
+    CreateTenantRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 租户名称
+          example: "my-organization"
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 租户名称
+        is_active:
+          type: boolean
+          description: 启用/禁用租户
+
+    TenantResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: 租户 ID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "my-organization"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, name, is_active, created_at, updated_at]
+
+    # -------------------------------------------------------------------------
+    # API Key
+    # -------------------------------------------------------------------------
+    CreateApiKeyRequest:
+      type: object
+      required: [tenant_id, name, scopes]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+          description: 所属租户 ID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Key 名称
+          example: "production-key"
+        scopes:
+          type: string
+          description: "逗号分隔的模型权限，如 `gpt-4,gpt-3.5-turbo`，`*` 表示所有模型"
+          example: "gpt-4,gpt-3.5-turbo"
+        expires_at:
+          type: string
+          format: date-time
+          description: 过期时间（可选，为空表示永不过期）
+
+    UpdateApiKeyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: Key 名称
+        scopes:
+          type: string
+          description: "逗号分隔的模型权限"
+        is_active:
+          type: boolean
+          description: 启用/禁用 Key
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: "过期时间，设为 null 清除过期时间"
+
+    ApiKeyResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        tenant_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        name:
+          type: string
+          example: "production-key"
+        key_prefix:
+          type: string
+          description: "Key 前缀（前 8 位），用于识别"
+          example: "sk-a1b2c3d4"
+        full_key:
+          type: string
+          description: "完整 Key，仅在创建时返回"
+          example: "sk-a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"
+        scopes:
+          type: string
+          example: "gpt-4,gpt-3.5-turbo"
+        is_active:
+          type: boolean
+          example: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, tenant_id, name, key_prefix, scopes, is_active, created_at, updated_at]
+
+    # -------------------------------------------------------------------------
+    # 代理 API - 聊天补全
+    # -------------------------------------------------------------------------
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          description: 模型名称
+          example: "gpt-4"
+        messages:
+          type: array
+          description: 消息列表
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        temperature:
+          type: number
+          format: float
+          description: 采样温度
+          example: 0.7
+        max_tokens:
+          type: integer
+          description: 最大生成 Token 数
+          example: 1024
+        stream:
+          type: boolean
+          description: 是否流式输出
+          default: false
+
+    ChatMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+          description: 消息角色
+        content:
+          type: string
+          description: 消息内容
+
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "chatcmpl-123"
+        object:
+          type: string
+          example: "chat.completion"
+        created:
+          type: integer
+          example: 1677652288
+        model:
+          type: string
+          example: "gpt-4"
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Choice"
+        usage:
+          $ref: "#/components/schemas/Usage"
+
+    Choice:
+      type: object
+      properties:
+        index:
+          type: integer
+        message:
+          $ref: "#/components/schemas/ChatMessage"
+        finish_reason:
+          type: string
+          example: "stop"
+
+    Usage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+
+    # -------------------------------------------------------------------------
+    # 代理 API - 模型列表
+    # -------------------------------------------------------------------------
+    ModelListResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          example: "list"
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Model"
+
+    Model:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "gpt-4"
+        object:
+          type: string
+          example: "model"
+        created:
+          type: integer
+        owned_by:
+          type: string
+          example: "openai"
+
+    # -------------------------------------------------------------------------
+    # 错误响应
+    # -------------------------------------------------------------------------
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: 错误描述
+              example: "invalid request body"
+            type:
+              type: string
+              description: 错误类型
+              example: "request_error"
+            code:
+              type: integer
+              description: HTTP 状态码
+              example: 400
+          required: [message, type, code]
+      required: [error]
+
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: 未认证或认证失败
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: 权限不足
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    BadGateway:
+      description: 上游服务错误
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

@@ -1,0 +1,33 @@
+services:
+  gateway:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_PATH=/app/data/gateway.db
+      - PORT=8080
+      - LOG_LEVEL=info
+      - MOCK_PROVIDER_BASE_URL=http://mock-provider:80
+      - USAGE_FLUSH_INTERVAL=5s
+      - USAGE_FLUSH_BATCH_SIZE=100
+      - CORS_ALLOWED_ORIGINS=*
+    volumes:
+      - gateway-data:/app/data
+    depends_on:
+      mock-provider:
+        condition: service_started
+
+  mock-provider:
+    image: nginx:alpine
+    ports:
+      - "9090:80"
+    volumes:
+      - ./scripts/mock-provider.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:80/mock/chat/completions" ]
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+volumes:
+  gateway-data:

@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>AI Gateway 管理面板</title>
+	<style>
+		:root {
+			--bg: #0f172a;
+			--sidebar: #1e293b;
+			--card: #1e293b;
+			--border: #334155;
+			--text: #e2e8f0;
+			--text-muted: #94a3b8;
+			--primary: #3b82f6;
+			--primary-hover: #2563eb;
+			--success: #22c55e;
+			--warning: #f59e0b;
+			--danger: #ef4444;
+			--danger-hover: #dc2626;
+		}
+
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: var(--bg);
+			color: var(--text);
+			display: flex;
+			min-height: 100vh;
+		}
+
+		.sidebar {
+			width: 240px;
+			background: var(--sidebar);
+			padding: 20px 0;
+			border-right: 1px solid var(--border);
+			flex-shrink: 0;
+		}
+
+		.sidebar h1 {
+			font-size: 16px;
+			font-weight: 600;
+			padding: 0 20px 20px;
+			border-bottom: 1px solid var(--border);
+			margin-bottom: 8px;
+			color: var(--primary);
+		}
+
+		.sidebar nav {
+			display: flex;
+			flex-direction: column;
+		}
+
+		.sidebar nav a {
+			padding: 10px 20px;
+			color: var(--text-muted);
+			text-decoration: none;
+			font-size: 14px;
+			cursor: pointer;
+			transition: all 0.15s;
+			border-left: 3px solid transparent;
+		}
+
+		.sidebar nav a:hover,
+		.sidebar nav a.active {
+			color: var(--text);
+			background: rgba(59, 130, 246, 0.1);
+			border-left-color: var(--primary);
+		}
+
+		.main {
+			flex: 1;
+			padding: 24px;
+			overflow-y: auto;
+			max-width: calc(100vw - 240px);
+		}
+
+		.page {
+			display: none;
+		}
+
+		.page.active {
+			display: block;
+		}
+
+		h2 {
+			font-size: 20px;
+			margin-bottom: 20px;
+		}
+
+		.cards {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+			gap: 16px;
+			margin-bottom: 24px;
+		}
+
+		.card {
+			background: var(--card);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 16px;
+		}
+
+		.card h3 {
+			font-size: 12px;
+			color: var(--text-muted);
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			margin-bottom: 8px;
+		}
+
+		.card .value {
+			font-size: 28px;
+			font-weight: 700;
+		}
+
+		.card .value.green {
+			color: var(--success);
+		}
+
+		.card .value.blue {
+			color: var(--primary);
+		}
+
+		.card .value.yellow {
+			color: var(--warning);
+		}
+
+		.card .value.red {
+			color: var(--danger);
+		}
+
+		.toolbar {
+			display: flex;
+			gap: 8px;
+			margin-bottom: 16px;
+			flex-wrap: wrap;
+		}
+
+		.btn {
+			padding: 8px 16px;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: var(--card);
+			color: var(--text);
+			cursor: pointer;
+			font-size: 13px;
+			transition: all 0.15s;
+		}
+
+		.btn:hover {
+			background: #334155;
+		}
+
+		.btn-primary {
+			background: var(--primary);
+			border-color: var(--primary);
+			color: white;
+		}
+
+		.btn-primary:hover {
+			background: var(--primary-hover);
+		}
+
+		.btn-danger {
+			background: var(--danger);
+			border-color: var(--danger);
+			color: white;
+		}
+
+		.btn-danger:hover {
+			background: var(--danger-hover);
+		}
+
+		.btn-sm {
+			padding: 4px 10px;
+			font-size: 12px;
+		}
+
+		input,
+		select {
+			padding: 8px 12px;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			background: #0f172a;
+			color: var(--text);
+			font-size: 13px;
+			outline: none;
+		}
+
+		input:focus,
+		select:focus {
+			border-color: var(--primary);
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			background: var(--card);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			overflow: hidden;
+			font-size: 13px;
+		}
+
+		th,
+		td {
+			padding: 10px 12px;
+			text-align: left;
+			border-bottom: 1px solid var(--border);
+		}
+
+		th {
+			background: #334155;
+			font-weight: 600;
+			color: var(--text-muted);
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+		}
+
+		td {
+			color: var(--text);
+		}
+
+		.badge {
+			display: inline-block;
+			padding: 2px 8px;
+			border-radius: 4px;
+			font-size: 11px;
+			font-weight: 600;
+		}
+
+		.badge.active {
+			background: rgba(34, 197, 94, 0.2);
+			color: var(--success);
+		}
+
+		.badge.inactive {
+			background: rgba(239, 68, 68, 0.2);
+			color: var(--danger);
+		}
+
+		.badge.key {
+			background: rgba(59, 130, 246, 0.2);
+			color: var(--primary);
+		}
+
+		.action-cell {
+			display: flex;
+			gap: 4px;
+		}
+
+		.modal-overlay {
+			display: none;
+			position: fixed;
+			inset: 0;
+			background: rgba(0, 0, 0, 0.6);
+			z-index: 100;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.modal-overlay.show {
+			display: flex;
+		}
+
+		.modal {
+			background: var(--card);
+			border: 1px solid var(--border);
+			border-radius: 12px;
+			padding: 24px;
+			width: 480px;
+			max-width: 90vw;
+			max-height: 80vh;
+			overflow-y: auto;
+		}
+
+		.modal h3 {
+			font-size: 16px;
+			margin-bottom: 16px;
+		}
+
+		.form-group {
+			margin-bottom: 12px;
+		}
+
+		.form-group label {
+			display: block;
+			font-size: 12px;
+			color: var(--text-muted);
+			margin-bottom: 4px;
+		}
+
+		.form-group input,
+		.form-group select {
+			width: 100%;
+		}
+
+		.form-actions {
+			display: flex;
+			gap: 8px;
+			justify-content: flex-end;
+			margin-top: 16px;
+		}
+
+		.toast {
+			position: fixed;
+			top: 16px;
+			right: 16px;
+			z-index: 200;
+			padding: 12px 20px;
+			border-radius: 8px;
+			font-size: 13px;
+			color: white;
+			transform: translateX(120%);
+			transition: transform 0.3s;
+		}
+
+		.toast.show {
+			transform: translateX(0);
+		}
+
+		.toast.success {
+			background: var(--success);
+		}
+
+		.toast.error {
+			background: var(--danger);
+		}
+
+		.empty {
+			text-align: center;
+			padding: 40px;
+			color: var(--text-muted);
+		}
+
+		.expired {
+			opacity: 0.5;
+		}
+
+		.copy-btn {
+			cursor: pointer;
+			color: var(--primary);
+		}
+
+		.copy-btn:hover {
+			text-decoration: underline;
+		}
+	</style>
+</head>
+
+<body>
+
+	<aside class="sidebar">
+		<h1>AI Gateway</h1>
+		<nav>
+			<a class="active" onclick="showPage('overview')">📊 概览</a>
+			<a onclick="showPage('tenants')">🏢 租户管理</a>
+			<a onclick="showPage('keys')">🔑 API Key 管理</a>
+			<a onclick="showPage('usage')">📈 用量监控</a>
+		</nav>
+	</aside>
+
+	<main class="main">
+
+		<!-- ===== Overview ===== -->
+		<div id="page-overview" class="page active">
+			<h2>概览</h2>
+			<div class="cards" id="overview-cards">
+				<div class="card">
+					<h3>租户总数</h3>
+					<div class="value blue" id="stat-tenants">-</div>
+				</div>
+				<div class="card">
+					<h3>API Key 总数</h3>
+					<div class="value blue" id="stat-keys">-</div>
+				</div>
+				<div class="card">
+					<h3>活跃 Key</h3>
+					<div class="value green" id="stat-active-keys">-</div>
+				</div>
+				<div class="card">
+					<h3>总请求次数</h3>
+					<div class="value yellow" id="stat-requests">-</div>
+				</div>
+				<div class="card">
+					<h3>总 Token 消耗</h3>
+					<div class="value red" id="stat-tokens">-</div>
+				</div>
+			</div>
+			<div class="card">
+				<h3>最近用量记录</h3>
+				<div id="recent-usage"></div>
+			</div>
+		</div>
+
+		<!-- ===== Tenants ===== -->
+		<div id="page-tenants" class="page">
+			<h2>租户管理</h2>
+			<div class="toolbar">
+				<button class="btn btn-primary" onclick="openTenantModal()">+ 新建租户</button>
+			</div>
+			<table>
+				<thead>
+					<tr>
+						<th>ID</th>
+						<th>名称</th>
+						<th>状态</th>
+						<th>创建时间</th>
+						<th>操作</th>
+					</tr>
+				</thead>
+				<tbody id="tenant-table"></tbody>
+			</table>
+		</div>
+
+		<!-- ===== API Keys ===== -->
+		<div id="page-keys" class="page">
+			<h2>API Key 管理</h2>
+			<div class="toolbar">
+				<button class="btn btn-primary" onclick="openKeyModal()">+ 新建 Key</button>
+			</div>
+			<table>
+				<thead>
+					<tr>
+						<th>前缀</th>
+						<th>名称</th>
+						<th>租户</th>
+						<th>权限 (模型)</th>
+						<th>状态</th>
+						<th>过期时间</th>
+						<th>操作</th>
+					</tr>
+				</thead>
+				<tbody id="key-table"></tbody>
+			</table>
+		</div>
+
+		<!-- ===== Usage ===== -->
+		<div id="page-usage" class="page">
+			<h2>用量监控</h2>
+			<div class="toolbar">
+				<select id="usage-tenant-filter" onchange="loadUsageSummary()">
+					<option value="">所有租户</option>
+				</select>
+				<input type="date" id="usage-start">
+				<input type="date" id="usage-end">
+				<button class="btn btn-primary" onclick="loadUsageSummary()">查询</button>
+			</div>
+			<div class="cards" id="usage-summary-cards">
+				<div class="card">
+					<h3>请求次数</h3>
+					<div class="value yellow" id="usage-requests">-</div>
+				</div>
+				<div class="card">
+					<h3>Prompt Tokens</h3>
+					<div class="value blue" id="usage-prompt">-</div>
+				</div>
+				<div class="card">
+					<h3>Completion Tokens</h3>
+					<div class="value green" id="usage-completion">-</div>
+				</div>
+				<div class="card">
+					<h3>总 Tokens</h3>
+					<div class="value red" id="usage-total">-</div>
+				</div>
+			</div>
+			<div class="card" style="margin-top:16px">
+				<h3>详细记录</h3>
+				<div id="usage-detail-table"></div>
+			</div>
+		</div>
+
+	</main>
+
+	<!-- ===== Tenant Modal ===== -->
+	<div class="modal-overlay" id="tenant-modal">
+		<div class="modal">
+			<h3 id="tenant-modal-title">新建租户</h3>
+			<div class="form-group">
+				<label>名称</label>
+				<input type="text" id="tenant-name" placeholder="例如: test-org" maxlength="64">
+			</div>
+			<div class="form-actions">
+				<button class="btn" onclick="closeModal('tenant-modal')">取消</button>
+				<button class="btn btn-primary" id="tenant-save-btn" onclick="saveTenant()">保存</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- ===== Key Modal ===== -->
+	<div class="modal-overlay" id="key-modal">
+		<div class="modal">
+			<h3 id="key-modal-title">新建 API Key</h3>
+			<div class="form-group">
+				<label>所属租户</label>
+				<select id="key-tenant">
+					<option value="">请先创建租户</option>
+				</select>
+			</div>
+			<div class="form-group">
+				<label>名称</label>
+				<input type="text" id="key-name" placeholder="例如: dev-key" maxlength="64">
+			</div>
+			<div class="form-group">
+				<label>权限 (模型，逗号分隔)</label>
+				<input type="text" id="key-scopes" placeholder="gpt-4,gpt-3.5-turbo" value="gpt-4,gpt-3.5-turbo">
+			</div>
+			<div class="form-group">
+				<label>过期时间 (可选)</label>
+				<input type="date" id="key-expires">
+			</div>
+			<div id="key-created-result" style="display:none">
+				<div class="card" style="background:#0f172a;border-color:var(--success);margin-top:8px">
+					<h3 style="color:var(--success)">Key 创建成功！请立即保存</h3>
+					<p style="font-size:11px;color:var(--text-muted);margin:4px 0">完整 Key 仅在创建时显示一次</p>
+					<code id="key-fullkey"
+						style="display:block;padding:8px;background:#000;border-radius:4px;font-size:13px;word-break:break-all;margin-top:4px"></code>
+					<button class="btn btn-sm" style="margin-top:8px" onclick="copyFullKey()">📋 复制 Key</button>
+				</div>
+			</div>
+			<div class="form-actions">
+				<button class="btn" onclick="closeModal('key-modal')">关闭</button>
+				<button class="btn btn-primary" id="key-save-btn" onclick="saveKey()">保存</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- ===== Toast ===== -->
+	<div class="toast" id="toast"></div>
+
+	<script>
+		const API_BASE = '';
+
+		// ===== Navigation =====
+		function showPage(name) {
+			document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+			document.querySelectorAll('.sidebar nav a').forEach(a => a.classList.remove('active'));
+			document.getElementById('page-' + name).classList.add('active');
+			document.querySelector(`.sidebar nav a[onclick*="'${name}'"]`).classList.add('active');
+			if (name === 'overview') loadOverview();
+			if (name === 'tenants') loadTenants();
+			if (name === 'keys') { loadTenantSelect(); loadKeys(); }
+			if (name === 'usage') { loadTenantSelectFilter(); loadUsageSummary(); }
+		}
+
+		// ===== Toast =====
+		function showToast(msg, type) {
+			const t = document.getElementById('toast');
+			t.textContent = msg;
+			t.className = 'toast ' + type + ' show';
+			setTimeout(() => t.classList.remove('show'), 3000);
+		}
+
+		// ===== Modal =====
+		function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+		function openModal(id) { document.getElementById(id).classList.add('show'); }
+
+		// ===== API helpers =====
+		async function api(path, opts) {
+			const res = await fetch(API_BASE + path, {
+				headers: { 'Content-Type': 'application/json', ...opts?.headers },
+				...opts
+			});
+			const text = await res.text();
+			let data;
+			try { data = JSON.parse(text); } catch (e) { data = text; }
+			if (!res.ok) throw new Error(data?.error?.message || data?.message || `HTTP ${res.status}`);
+			return data;
+		}
+
+		// ===== Overview =====
+		async function loadOverview() {
+			try {
+				const [tenants, keys, usage] = await Promise.all([
+					api('/api/tenants'),
+					api('/api/keys'),
+					api('/api/usage?limit=10')
+				]);
+				document.getElementById('stat-tenants').textContent = tenants.length;
+				document.getElementById('stat-keys').textContent = keys.length;
+				document.getElementById('stat-active-keys').textContent = keys.filter(k => k.is_active).length;
+				document.getElementById('stat-requests').textContent = usage?.total || 0;
+				const totalTokens = usage?.data?.reduce((s, r) => s + r.total_tokens, 0) || 0;
+				document.getElementById('stat-tokens').textContent = totalTokens.toLocaleString();
+
+				const recent = document.getElementById('recent-usage');
+				if (!usage?.data || usage.data.length === 0) {
+					recent.innerHTML = '<div class="empty">暂无用量记录</div>';
+				} else {
+					let html = '<table><thead><tr><th>租户</th><th>模型</th><th>Prompt</th><th>Completion</th><th>Total</th><th>时间</th></tr></thead><tbody>';
+					usage.data.forEach(r => {
+						html += `<tr><td>${escapeHtml(r.tenant_name)}</td><td>${r.model}</td><td>${r.prompt_tokens}</td><td>${r.completion_tokens}</td><td>${r.total_tokens}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`;
+					});
+					html += '</tbody></table>';
+					recent.innerHTML = html;
+				}
+			} catch (e) {
+				showToast('加载概览失败: ' + e.message, 'error');
+			}
+		}
+
+		// ===== Tenants =====
+		let editingTenantId = null;
+
+		async function loadTenants() {
+			try {
+				const data = await api('/api/tenants');
+				const tbody = document.getElementById('tenant-table');
+				if (data.length === 0) {
+					tbody.innerHTML = '<tr><td colspan="5"><div class="empty">暂无租户</div></td></tr>';
+					return;
+				}
+				tbody.innerHTML = data.map(t => `
+      <tr>
+        <td style="font-family:monospace;font-size:11px">${t.id}</td>
+        <td>${escapeHtml(t.name)}</td>
+        <td><span class="badge ${t.is_active ? 'active' : 'inactive'}">${t.is_active ? '活跃' : '禁用'}</span></td>
+        <td>${new Date(t.created_at).toLocaleString()}</td>
+        <td class="action-cell">
+          <button class="btn btn-sm" onclick="editTenant('${t.id}','${escapeHtml(t.name)}')">编辑</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteTenant('${t.id}')">删除</button>
+        </td>
+      </tr>
+    `).join('');
+			} catch (e) {
+				showToast('加载租户失败: ' + e.message, 'error');
+			}
+		}
+
+		function openTenantModal(id, name) {
+			editingTenantId = id || null;
+			document.getElementById('tenant-modal-title').textContent = id ? '编辑租户' : '新建租户';
+			document.getElementById('tenant-name').value = name || '';
+			document.getElementById('tenant-save-btn').textContent = id ? '更新' : '保存';
+			openModal('tenant-modal');
+		}
+
+		function editTenant(id, name) { openTenantModal(id, name); }
+
+		async function saveTenant() {
+			const name = document.getElementById('tenant-name').value.trim();
+			if (!name) { showToast('请输入名称', 'error'); return; }
+			try {
+				if (editingTenantId) {
+					await api('/api/tenants/' + editingTenantId, { method: 'PUT', body: JSON.stringify({ name }) });
+					showToast('租户已更新', 'success');
+				} else {
+					await api('/api/tenants', { method: 'POST', body: JSON.stringify({ name }) });
+					showToast('租户已创建', 'success');
+				}
+				closeModal('tenant-modal');
+				loadTenants();
+			} catch (e) {
+				showToast('操作失败: ' + e.message, 'error');
+			}
+		}
+
+		async function deleteTenant(id) {
+			if (!confirm('确定删除此租户？')) return;
+			try {
+				await api('/api/tenants/' + id, { method: 'DELETE' });
+				showToast('租户已删除', 'success');
+				loadTenants();
+			} catch (e) {
+				showToast('删除失败: ' + e.message, 'error');
+			}
+		}
+
+		// ===== API Keys =====
+		let editingKeyId = null;
+
+		async function loadTenantSelect() {
+			try {
+				const tenants = await api('/api/tenants');
+				const sel = document.getElementById('key-tenant');
+				sel.innerHTML = tenants.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+			} catch (e) { /* ignore */ }
+		}
+
+		async function loadKeys() {
+			try {
+				const data = await api('/api/keys');
+				const tenants = await api('/api/tenants');
+				const tenantMap = {};
+				tenants.forEach(t => tenantMap[t.id] = t.name);
+
+				const tbody = document.getElementById('key-table');
+				if (data.length === 0) {
+					tbody.innerHTML = '<tr><td colspan="7"><div class="empty">暂无 API Key</div></td></tr>';
+					return;
+				}
+				tbody.innerHTML = data.map(k => {
+					const expired = k.expires_at && new Date(k.expires_at) < new Date();
+					return `
+      <tr class="${expired ? 'expired' : ''}">
+        <td style="font-family:monospace;font-size:12px">${k.key_prefix}...</td>
+        <td>${escapeHtml(k.name)}</td>
+        <td>${escapeHtml(tenantMap[k.tenant_id] || k.tenant_id)}</td>
+        <td style="font-size:11px">${k.scopes}</td>
+        <td><span class="badge ${k.is_active ? 'active' : 'inactive'}">${k.is_active ? (expired ? '已过期' : '活跃') : '禁用'}</span></td>
+        <td>${k.expires_at ? new Date(k.expires_at).toLocaleDateString() : '永不过期'}</td>
+        <td class="action-cell">
+          <button class="btn btn-sm" onclick="editKey('${k.id}','${k.tenant_id}','${escapeHtml(k.name)}','${escapeHtml(k.scopes)}','${k.is_active}','${k.expires_at}')">编辑</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteKey('${k.id}')">删除</button>
+        </td>
+      </tr>`;
+				}).join('');
+			} catch (e) {
+				showToast('加载 Key 失败: ' + e.message, 'error');
+			}
+		}
+
+		function openKeyModal() {
+			editingKeyId = null;
+			document.getElementById('key-modal-title').textContent = '新建 API Key';
+			document.getElementById('key-save-btn').style.display = 'inline-block';
+			document.getElementById('key-created-result').style.display = 'none';
+			document.getElementById('key-name').value = '';
+			document.getElementById('key-scopes').value = 'gpt-4,gpt-3.5-turbo';
+			document.getElementById('key-expires').value = '';
+			openModal('key-modal');
+		}
+
+		function editKey(id, tenantId, name, scopes, isActive, expiresAt) {
+			editingKeyId = id;
+			document.getElementById('key-modal-title').textContent = '编辑 API Key';
+			document.getElementById('key-save-btn').style.display = 'inline-block';
+			document.getElementById('key-created-result').style.display = 'none';
+			document.getElementById('key-tenant').value = tenantId;
+			document.getElementById('key-name').value = name;
+			document.getElementById('key-scopes').value = scopes;
+			document.getElementById('key-expires').value = expiresAt ? expiresAt.split('T')[0] : '';
+			openModal('key-modal');
+		}
+
+		async function saveKey() {
+			const tenantId = document.getElementById('key-tenant').value;
+			const name = document.getElementById('key-name').value.trim();
+			const scopes = document.getElementById('key-scopes').value.trim();
+			const expires = document.getElementById('key-expires').value;
+
+			if (!tenantId) { showToast('请选择租户', 'error'); return; }
+			if (!name) { showToast('请输入名称', 'error'); return; }
+			if (!scopes) { showToast('请输入权限', 'error'); return; }
+
+			try {
+				if (editingKeyId) {
+					const body = { name, scopes };
+					if (expires) body.expires_at = new Date(expires).toISOString();
+					await api('/api/keys/' + editingKeyId, { method: 'PUT', body: JSON.stringify(body) });
+					showToast('Key 已更新', 'success');
+					closeModal('key-modal');
+				} else {
+					const body = { tenant_id: tenantId, name, scopes };
+					if (expires) body.expires_at = new Date(expires).toISOString();
+					const result = await api('/api/keys', { method: 'POST', body: JSON.stringify(body) });
+					document.getElementById('key-save-btn').style.display = 'none';
+					document.getElementById('key-fullkey').textContent = result.full_key;
+					document.getElementById('key-created-result').style.display = 'block';
+					showToast('Key 已创建', 'success');
+				}
+				loadKeys();
+			} catch (e) {
+				showToast('操作失败: ' + e.message, 'error');
+			}
+		}
+
+		async function deleteKey(id) {
+			if (!confirm('确定删除此 API Key？')) return;
+			try {
+				await api('/api/keys/' + id, { method: 'DELETE' });
+				showToast('Key 已删除', 'success');
+				loadKeys();
+			} catch (e) {
+				showToast('删除失败: ' + e.message, 'error');
+			}
+		}
+
+		function copyFullKey() {
+			const key = document.getElementById('key-fullkey').textContent;
+			navigator.clipboard.writeText(key).then(() => showToast('已复制到剪贴板', 'success'));
+		}
+
+		// ===== Usage =====
+		async function loadTenantSelectFilter() {
+			try {
+				const tenants = await api('/api/tenants');
+				const sel = document.getElementById('usage-tenant-filter');
+				sel.innerHTML = '<option value="">所有租户</option>' + tenants.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+			} catch (e) { /* ignore */ }
+			// Set default date range
+			const end = new Date();
+			const start = new Date();
+			start.setDate(start.getDate() - 7);
+			document.getElementById('usage-start').value = start.toISOString().split('T')[0];
+			document.getElementById('usage-end').value = end.toISOString().split('T')[0];
+		}
+
+		async function loadUsageSummary() {
+			const tenantId = document.getElementById('usage-tenant-filter').value;
+			const start = document.getElementById('usage-start').value;
+			const end = document.getElementById('usage-end').value;
+
+			try {
+				// Load summary
+				let summaryUrl = `/api/usage/summary`;
+				let params = [];
+				if (tenantId) params.push(`tenant_id=${tenantId}`);
+				if (start) params.push(`start=${new Date(start).toISOString()}`);
+				if (end) params.push(`end=${new Date(end + 'T23:59:59').toISOString()}`);
+				if (params.length) summaryUrl += '?' + params.join('&');
+				const summary = await api(summaryUrl);
+				document.getElementById('usage-requests').textContent = summary.request_count;
+				document.getElementById('usage-prompt').textContent = summary.total_prompt_tokens.toLocaleString();
+				document.getElementById('usage-completion').textContent = summary.total_completion_tokens.toLocaleString();
+				document.getElementById('usage-total').textContent = summary.total_tokens.toLocaleString();
+
+				// Load detail records
+				let url = `/api/usage?limit=50`;
+				if (tenantId) url += `&tenant_id=${tenantId}`;
+				if (start) url += `&start=${new Date(start).toISOString()}`;
+				if (end) url += `&end=${new Date(end + 'T23:59:59').toISOString()}`;
+
+				const usage = await api(url);
+				const detail = document.getElementById('usage-detail-table');
+				if (!usage?.data || usage.data.length === 0) {
+					detail.innerHTML = '<div class="empty">暂无用量记录</div>';
+				} else {
+					let html = '<table><thead><tr><th>租户</th><th>模型</th><th>Prompt</th><th>Completion</th><th>Total</th><th>时间</th></tr></thead><tbody>';
+					usage.data.forEach(r => {
+						html += `<tr><td>${escapeHtml(r.tenant_name)}</td><td>${r.model}</td><td>${r.prompt_tokens}</td><td>${r.completion_tokens}</td><td>${r.total_tokens}</td><td>${new Date(r.created_at).toLocaleString()}</td></tr>`;
+					});
+					html += '</tbody></table>';
+					detail.innerHTML = html;
+				}
+			} catch (e) {
+				showToast('加载用量失败: ' + e.message, 'error');
+			}
+		}
+
+		function escapeHtml(s) {
+			if (!s) return '';
+			const div = document.createElement('div');
+			div.appendChild(document.createTextNode(s));
+			return div.innerHTML;
+		}
+
+		// ===== Init =====
+		loadOverview();
+	</script>
+</body>
+
+</html>
